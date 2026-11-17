@@ -1,51 +1,63 @@
 # How I used AI tools
 
-I used **Claude Code** (Anthropic's AI coding assistant, running in my terminal) as a pair programmer for both tasks. I made the decisions and reviewed the work; the AI did most of the typing, proposed options, and was used heavily for reviewing and testing.
+I used **Claude Code** (Anthropic's AI coding assistant, running in my terminal) as a pair programmer. **I planned the solution, defined the test plan and led the reviews**; the AI implemented most of the code from my plan and extended the tests with additional edge cases.
 
-## What I decided
+## Planning: done by me
 
-Before any code was written, I had the AI lay out the options with trade-offs, and I chose:
+I broke down the assignment and planned both tasks before any code was written:
 
-- **Stack:** TypeScript + Fastify for Task 1 (the same language as the React app in Task 2).
-- **Quota algorithm:** a fixed window. I had it compare the alternatives (sliding window, token bucket, leaky bucket) and write down why a fixed window fits a *billing* quota best.
-- **Failed AI calls:** not charged, but recorded as evidence.
-- **Unknown users:** 200 with zeros rather than 404, since there is no user registry.
-- **Structure:** feature modules with layers (routes → service → repository). I rejected the first, more fragmented version as too many files for the scope and chose a leaner one.
-- **Storage:** SQLite, with the schema kept in code rather than in a separate `.sql` file.
-- **Task 2:** Zustand + Server-Sent Events, a Fastify mock server, in-memory data, plain CSS.
-- **Design document:** Mermaid diagrams, with a slot for a Lucidchart image.
+- **Architecture and approach.** Task 1: TypeScript + Fastify, SQLite as local storage, a fixed-window quota, and reserve → call AI → commit/release. Task 2: React with a single Zustand store, Server-Sent Events from a Fastify mock server, and in-memory data.
+- **Key decisions:**
+  - failed AI calls are **not charged but recorded** as evidence
+  - unknown users get 200 with zeros rather than 404
+  - a fixed window was chosen over sliding window and token bucket, because this is a billing quota
+  - each task is self-contained in its own folder
+- **Structure.** Feature modules with layers (routes → service → repository). I rejected the first, more fragmented layout as too many files for the scope and chose a leaner one.
+- **Priorities.** Edge cases first, low latency, and code at a senior level that I can explain line by line.
+- **Design questions** that shaped the solution, for example how users whose requests fall at different times in the same period are counted, and what the usage-history endpoint returns with no filters (this led to defaults and cursor pagination).
 
-I also raised questions that changed the design. For example: what happens to two users whose requests fall at different times in the same period, and what `GET /usage/events` returns with no filters. The second led to defined defaults and cursor pagination.
+I used the AI to lay out alternatives and their trade-offs, then made the choice myself.
+
+## Test plan: defined by me, extended by the AI
+
+I defined what had to be tested: the quota limit, concurrency (including several server instances sharing one database), retries and idempotency, AI failures and timeouts, crash recovery, period boundaries, input validation, and for Task 2 that every component stays in sync, including changes coming from the server.
+
+The AI wrote the tests from that plan and **added more edge cases on top of it**, for example:
+- timer settings beyond Node's 32-bit limit
+- prompts made only of invisible characters
+- a deleted task reappearing after a late server answer
+- a large board unable to connect to the live stream
+
+All edge cases are documented with how each is handled: 45 for Task 1 (`task1-metering/docs/EDGE_CASES.md`) and 29 for Task 2 (its README).
+
+## Reviews: led by me
+
+- I reviewed each file as it was created (with a short explanation of its purpose).
+- **After each code review, the AI reported its findings to me**: bugs (each reproduced first), new edge cases and duplicated code. **I went through them and decided what to fix and how**; only then were the fixes made.
+- I **required another full review after every round of fixes, until a round came back with no comments**: 7 rounds for Task 1 and 5 for Task 2.
+- These rounds found and fixed real bugs, for example:
+  - a crashed process exiting with code 0 ("success")
+  - the crash-recovery sweeper getting stuck on a corrupt row
+  - the editor overwriting someone else's title change when you only clicked into the field
+- I checked both tasks against the assignment's requirements myself. That caught a design document longer than the 2–4 pages asked for, and an assignee view that didn't yet allow editing. Both were fixed.
 
 ## What the AI did
 
-- Planned both tasks in plan mode; I reviewed and approved each plan before any code was written.
-- Brainstormed edge cases. Each one is documented with how it's handled and, where practical, has a test: 45 for Task 1 and 29 for Task 2.
-- Wrote the code, the tests and the documentation.
-- Before creating each file, gave me a short explanation of what it does and why it matters, so I approved files knowing their purpose rather than in bulk.
+- Wrote most of the code, tests and documentation, following my plan.
+- Proposed alternatives with trade-offs when I asked.
+- Added extra edge cases and tests beyond my test plan.
+- Ran the code reviews I asked for, and reproduced every bug before fixing it (a failing test or small probe that is kept as a regression test).
 
-## How the output was checked
+## Verification
 
-- **Repeated code reviews.** I asked for a full review of each task, then for fixes and another review, until a round came back with no comments: 7 rounds for Task 1 and 5 for Task 2. These reviews found real bugs, for example:
-  - a crashed process exiting with code 0 ("success")
-  - timer settings above Node's 32-bit limit silently becoming 1 ms (every request would time out)
-  - the crash-recovery sweeper getting stuck on a corrupt counter row
-  - a deleted task reappearing when a late server answer arrived
-  - the editor overwriting someone else's title change when you only clicked into the field
-  - a large board never being able to connect to the live stream
-- **Every bug was reproduced first** (a failing test or a small probe), then fixed, and the test was kept so it can't come back.
-- **Running it for real**, not just unit tests:
-  - start-up from a clean copy without `node_modules`
+- Every change was type-checked (strict mode) and tested: 95 tests for Task 1 and 97 for Task 2.
+- Both tasks were run for real, not just through tests:
+  - start-up from a clean clone of the GitHub repository
   - real HTTP requests, including a 409 conflict
   - the live event stream read with `curl`
-  - three separate processes sharing one database
-  - the Task 2 board opened and watched in a browser
-- **Type checking** in strict mode on every change.
-
-## Mistakes the AI made that were caught
-
-The AI was not always right the first time. Some tests had wrong expectations, and the code was right; those were corrected, not the code. Once, a PowerShell command it used to edit files corrupted a few non-ASCII characters (like `✕`). It noticed, fixed them, checked both tasks for any other damage, and added a UI test that checks those characters. Reviewing and running everything, rather than trusting the first output, is why these were caught.
+  - three processes sharing one database
+  - the task board checked in a browser
 
 ## Responsibility
 
-I can explain every part of the submission: the design decisions above, how each edge case is handled, and how the code is structured. The trade-offs and what was left out are written down in each task's README and in Task 1's design document.
+I can explain every part of the submission: the design decisions, how each edge case is handled, and how the code is structured. Trade-offs and what was left out are documented in each task's README and in Task 1's design document.
