@@ -1,0 +1,25 @@
+# Dependencies (installed by `npm start` / `npm install`)
+node_modules/
+
+# Build output (Task 2 builds the React app on `npm start`)
+dist/
+
+# Local databases (Task 1 creates its SQLite file on first start)
+data/
+*.db
+*.db-wal
+*.db-shm
+
+# Test coverage, environment files
+coverage/
+.env
+.env.*
+
+# Personal Claude Code settings (machine-specific, not part of the submission)
+.claude/settings.local.json
+
+# Editor / OS clutter
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
